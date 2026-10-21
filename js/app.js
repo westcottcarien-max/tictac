@@ -27,6 +27,11 @@ function baseState() {
     bg: { type: 'gradient', c1: '#8b5cf6', c2: '#14c9b8', angle: 135, photo: null, photoX: 0.5, photoY: 0.5, photoZoom: 1, photoFit: 'fill', dim: 0.3, blur: 0, pattern: 'none', patColor: '#ffffff', patOp: 0.14, particles: 'confetti', pCount: 36, vignette: 0.2 },
     text: { title: 'My Big Day', subtitle: '', footer: '', titleFont: 'Fredoka', numFont: 'Fredoka', color: '#ffffff', accent: '#ffe066', titleSize: 110, titleY: 0.17, showDate: true, titleOutline: false },
     frame: { style: 'none', color: '#ffffff' },
+    blocks: {
+      title: { kind: 'block', key: 'title', size: 110, align: 'center', font: '', color: '', pos: {} },
+      subtitle: { kind: 'block', key: 'subtitle', size: 52, align: 'center', font: '', color: '', pos: {} },
+      footer: { kind: 'block', key: 'footer', size: 56, align: 'center', font: '', color: '', pos: {} },
+    },
     size: 'square', logo: true, stickers: [],
   };
 }
@@ -44,6 +49,7 @@ function applyPreset(ev, withTheme) {
   Object.assign(s.bg, { type: 'gradient', c1: ev.b[0], c2: ev.b[1], angle: ev.b[2], pattern: ev.pa, particles: ev.pt, photo: null });
   s.text.color = ev.tc || '#ffffff'; s.text.accent = ev.ac; s.text.titleFont = ev.f;
   s.text.numFont = SCRIPTY.includes(ev.f) ? 'Fredoka' : ev.f;
+  ['title', 'subtitle', 'footer'].forEach((k) => { s.blocks[k].font = ''; s.blocks[k].color = ''; });
   s.frame.style = ev.id === 'christmas' || ev.id === 'xmaseve' ? 'lights' : 'none';
   s.bg.patColor = ev.tc ? ev.tc : '#ffffff';
   s.stickers = ev.st.map((e, i) => ({ id: uid(), kind: 'emoji', v: e, x: SPOTS[i][0], y: SPOTS[i][1], size: 140, rot: i % 2 ? 10 : -10, anim: ANIMS[i % 4], flip: false }));
@@ -107,7 +113,7 @@ function buildUI() {
   $('#evSearch').oninput = (e) => buildEvents(e.target.value);
   // stickers
   const cats = Object.keys(STICKERS); let cat = cats[0];
-  const showCat = () => { $$('#stkCats .chip').forEach((c) => c.classList.toggle('on', c.dataset.v === cat)); $('#stkGrid').innerHTML = ''; STICKERS[cat].forEach((e) => { const b = document.createElement('button'); b.textContent = e; b.onclick = () => addSticker({ kind: 'emoji', v: e, size: 150, anim: 'bounce' }); $('#stkGrid').appendChild(b); }); };
+  const showCat = () => { $$('#stkCats .chip').forEach((c) => c.classList.toggle('on', c.dataset.v === cat)); $('#stkGrid').innerHTML = ''; STICKERS[cat].forEach((e) => { const b = document.createElement('button'); const im = new Image(); im.loading = 'lazy'; im.alt = e; im.src = emojiUrls(e)[0]; im.onerror = () => { b.textContent = e; }; b.appendChild(im); b.onclick = () => addSticker({ kind: 'emoji', v: e, size: 150, anim: 'bounce' }); $('#stkGrid').appendChild(b); }); };
   $('#stkCats').innerHTML = ''; cats.forEach((c) => { const b = document.createElement('button'); b.className = 'chip'; b.dataset.v = c; b.textContent = c; b.onclick = () => { cat = c; showCat(); }; $('#stkCats').appendChild(b); });
   showCat();
   fillSelect($('#phOcc'), Object.keys(PHRASES).map((k) => [k, OCC_NAMES[k] || k])); fillSelect($('#phStyle'), WSTYLES.map((k) => [k, k[0].toUpperCase() + k.slice(1)]));
@@ -197,14 +203,36 @@ function addWord(v) {
   const style = $('#phStyle').value, c1 = $('#phC1').value, c2 = $('#phC2').value;
   addSticker({ kind: 'text', v, style, c1, c2, size: 64, y: 0.74 });
 }
+const isText = (o) => o && (o.kind === 'block' || o.kind === 'textbox');
+const selValid = () => sel && (sel.kind === 'block' ? !!state.blocks[sel.key] && !!sel._b : state.stickers.includes(sel));
 function syncStickerPanel() {
-  const box = $('#stkEdit'); box.hidden = !sel || !state.stickers.includes(sel);
+  const box = $('#stkEdit'); box.hidden = !selValid();
   if (box.hidden) return;
+  const blk = sel.kind === 'block', tb = sel.kind === 'textbox', t = sel.kind === 'text', im = sel.kind === 'image';
   $('#sSize').value = sel.size; $('#sRot').value = sel.rot || 0; $('#sAnim').value = sel.anim || 'none';
-  const t = sel.kind === 'text', im = sel.kind === 'image'; $('#sColors').hidden = !t; $('#sTextRow').hidden = !t; $('#sImg').hidden = !im;
+  $('#sCutRow').hidden = sel.kind !== 'emoji'; if (sel.kind === 'emoji') $('#sCut').checked = sel.border !== false;
+  $('#sColors').hidden = !t; $('#sTextRow').hidden = !t; $('#sImg').hidden = !im;
+  $('#sMsgF').hidden = !(blk || tb); $('#sTxtRow').hidden = !(blk || tb);
+  $('#sRotF').hidden = blk; $('#sAnimF').hidden = blk; $('#sFlip').hidden = blk || tb; $('#sDup').hidden = blk; $('#sFront').hidden = blk;
+  $('#seHint').textContent = blk ? '(text – drag it, or the purple dot to change the width)' : tb ? '(text box)' : '';
   if (im) { $('#sShape').value = sel.shape || 'none'; $('#sBorder').value = sel.bc || '#ffffff'; }
   if (t) { $('#sC1').value = sel.c1; $('#sC2').value = sel.c2; if (document.activeElement !== $('#sText')) $('#sText').value = sel.v; }
+  if (blk || tb) {
+    const fonts = blk ? [['', blk && sel.key === 'title' ? '(title font)' : '(default)']] : [];
+    fillSelect($('#sFont'), [...fonts, ...FONTS.map((f) => [f, f])]);
+    $('#sFont').value = sel.font || (tb ? 'Fredoka' : '');
+    $('#sAlign').value = sel.align || 'center';
+    $('#sTc').value = sel.color || state.text.color;
+    $('#sMsg').placeholder = blk && sel.key === 'subtitle' ? '(the date is shown – type here to replace it)' : '';
+    if (document.activeElement !== $('#sMsg')) $('#sMsg').value = blk ? state.text[sel.key] || '' : sel.v || '';
+  }
 }
+$('#sMsg').oninput = (e) => { if (sel.kind === 'block') { state.text[sel.key] = e.target.value; if (sel.key === 'subtitle' && !e.target.value) state.text.showDate = state.text.showDate; } else sel.v = e.target.value; save(); };
+$('#sAlign').onchange = (e) => { sel.align = e.target.value; save(); };
+$('#sFont').onchange = (e) => { sel.font = e.target.value; if (e.target.value) loadFont(e.target.value); save(); };
+$('#sTc').oninput = (e) => { sel.color = e.target.value; save(); };
+$('#addTextBtn').onclick = () => { addSticker({ kind: 'textbox', v: 'Your text here', size: 90, w: 0.7, align: 'center', color: '#ffffff', font: 'Fredoka', y: 0.62 }); $('#sMsg').focus(); $('#sMsg').select(); };
+$('#resetText').onclick = () => { Object.values(state.blocks).forEach((b) => { b.pos = {}; }); save(); toast('Text moved back to the default places'); };
 $('#sSize').oninput = (e) => { sel.size = +e.target.value; save(); };
 $('#sRot').oninput = (e) => { sel.rot = +e.target.value; save(); };
 $('#sAnim').onchange = (e) => { sel.anim = e.target.value; save(); };
@@ -213,11 +241,17 @@ $('#sC2').oninput = (e) => { sel.c2 = e.target.value; save(); };
 $('#sText').oninput = (e) => { sel.v = e.target.value; save(); };
 $('#sShape').onchange = (e) => { sel.shape = e.target.value; save(); };
 $('#sBorder').oninput = (e) => { sel.bc = e.target.value; save(); };
+$('#sCut').onchange = (e) => { sel.border = e.target.checked; save(); };
 $('#sFlip').onclick = () => { sel.flip = !sel.flip; save(); };
 $('#sDup').onclick = () => { const c = { ...clone(sel), id: uid(), x: Math.min(0.95, sel.x + 0.06), y: Math.min(0.95, sel.y + 0.06) }; state.stickers.push(c); sel = c; refreshUI(); save(); };
 $('#sFront').onclick = () => { state.stickers = state.stickers.filter((s) => s !== sel).concat(sel); save(); };
 $('#sDel').onclick = deleteSel;
-function deleteSel() { if (!sel) return; state.stickers = state.stickers.filter((s) => s !== sel); sel = null; refreshUI(); save(); }
+function deleteSel() {
+  if (!sel) return;
+  if (sel.kind === 'block') { state.text[sel.key] = ''; if (sel.key === 'subtitle') state.text.showDate = false; }
+  else state.stickers = state.stickers.filter((s) => s !== sel);
+  sel = null; refreshUI(); save();
+}
 $('#clearStk').onclick = () => { if (!state.stickers.length || confirm('Remove all stickers from this countdown?')) { state.stickers = []; sel = null; refreshUI(); save(); } };
 document.addEventListener('keydown', (e) => { if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); deleteSel(); } });
 
@@ -236,8 +270,13 @@ function hitSticker(px, py) {
     const dx = px - b.cx, dy = py - b.cy, c = Math.cos(-b.rot), si = Math.sin(-b.rot), lx = dx * c - dy * si, ly = dx * si + dy * c;
     if (Math.abs(lx) <= b.w / 2 + 8 && Math.abs(ly) <= b.h / 2 + 8) return s;
   }
+  for (const key of ['footer', 'subtitle', 'title']) {
+    const bl = state.blocks[key], b = bl._b; if (!b) continue;
+    if (Math.abs(px - b.cx) <= b.w / 2 + 8 && Math.abs(py - b.cy) <= b.h / 2 + 8) return bl;
+  }
   return null;
 }
+function setBlockPos(bl, patch) { bl.pos = bl.pos || {}; bl.pos[state.size] = { ...(bl.pos[state.size] || bl._b.geo), ...patch }; }
 cv.addEventListener('pointerdown', (e) => {
   const [px, py] = toCv(e); ptrs.set(e.pointerId, [px, py]);
   if (ptrs.size === 2 && photoOn() && (!drag || drag.m === 'bg')) { const [a, b] = [...ptrs.values()]; drag = { m: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z0: state.bg.photoZoom || 1 }; sel = null; return; }
@@ -247,10 +286,10 @@ cv.addEventListener('pointerdown', (e) => {
   }
   if (sel && sel._b) {
     const b = sel._b, hx = b.w / 2 + 6, hy = b.h / 2 + 6, c = Math.cos(b.rot), si = Math.sin(b.rot), X = b.cx + hx * c - hy * si, Y = b.cy + hx * si + hy * c;
-    if (Math.hypot(px - X, py - Y) < 26) { drag = { m: 'h', size: sel.size, rot: sel.rot || 0, d0: Math.hypot(px - b.cx, py - b.cy), a0: Math.atan2(py - b.cy, px - b.cx) }; cv.setPointerCapture(e.pointerId); return; }
+    if (Math.hypot(px - X, py - Y) < 26) { drag = { m: isText(sel) ? 'w' : 'h', size: sel.size, rot: sel.rot || 0, d0: Math.hypot(px - b.cx, py - b.cy), a0: Math.atan2(py - b.cy, px - b.cx) }; cv.setPointerCapture(e.pointerId); return; }
   }
   const s = hitSticker(px, py);
-  if (s) { sel = s; drag = { m: 'm', ox: px - s.x * cv.width, oy: py - s.y * cv.height }; cv.setPointerCapture(e.pointerId); switchTab('stickers'); }
+  if (s) { sel = s; drag = { m: 'm', ox: px - s._b.cx, oy: py - s._b.cy }; cv.setPointerCapture(e.pointerId); }
   else { sel = null; if (photoOn()) { drag = { m: 'bg', x0: px, y0: py, bx: state.bg.photoX ?? 0.5, by: state.bg.photoY ?? 0.5 }; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; } }
   refreshUI();
 });
@@ -259,7 +298,8 @@ cv.addEventListener('pointermove', (e) => {
   if (drag && drag.m === 'pinch') { if (ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; state.bg.photoZoom = Math.min(4, Math.max(1, drag.z0 * (Math.hypot(a[0] - b[0], a[1] - b[1]) / drag.d0))); syncPhotoSliders(); } return; }
   if (drag && drag.m === 'bg') { const ov = state.bg._ov || [0, 0]; if (ov[0] > 1) state.bg.photoX = clamp01(drag.bx - (px - drag.x0) / ov[0]); if (ov[1] > 1) state.bg.photoY = clamp01(drag.by - (py - drag.y0) / ov[1]); syncPhotoSliders(); return; }
   if (!drag || !sel) { cv.style.cursor = hitSticker(px, py) ? 'move' : 'default'; return; }
-  if (drag.m === 'm') { trash.show = true; trash.hot = Math.hypot(px - cv.width / 2, py - (cv.height - 58)) < 70; sel.x = Math.min(1.05, Math.max(-0.05, (px - drag.ox) / cv.width)); sel.y = Math.min(1.05, Math.max(-0.05, (py - drag.oy) / cv.height)); }
+  if (drag.m === 'm') { trash.show = true; trash.hot = Math.hypot(px - cv.width / 2, py - (cv.height - 58)) < 70; const nx = Math.min(1.05, Math.max(-0.05, (px - drag.ox) / cv.width)), ny = Math.min(1.05, Math.max(-0.05, (py - drag.oy) / cv.height)); if (sel.kind === 'block') setBlockPos(sel, { x: nx, y: ny }); else { sel.x = nx; sel.y = ny; } }
+  else if (drag.m === 'w') { const b = sel._b, lx = (px - b.cx) * Math.cos(b.rot) + (py - b.cy) * Math.sin(b.rot), fr = Math.min(1.3, Math.max(0.12, (2 * (lx - 6)) / cv.width)); if (sel.kind === 'block') setBlockPos(sel, { w: fr }); else sel.w = fr; }
   else { const b = sel._b, d = Math.hypot(px - b.cx, py - b.cy), a = Math.atan2(py - b.cy, px - b.cx); sel.size = Math.round(Math.min(700, Math.max(30, drag.size * (d / drag.d0)))); sel.rot = Math.round(drag.rot + ((a - drag.a0) * 180) / Math.PI); if (sel.rot > 180) sel.rot -= 360; if (sel.rot < -180) sel.rot += 360; syncStickerPanel(); }
 });
 const endDrag = (e) => {
@@ -287,6 +327,7 @@ async function ensureAssets() {
   const fonts = new Set([state.text.titleFont, state.text.numFont, 'Fredoka']);
   state.stickers.forEach((s) => s.kind === 'text' && fonts.add(WFONT[s.style]));
   await Promise.all([...fonts].map((f) => document.fonts.load(`700 40px "${f}"`).catch(() => {})));
+  await Promise.all(state.stickers.filter((s) => s.kind === 'emoji').map((s) => preloadSticker(s.v)));
   await Promise.all([state.bg.photo, 'logo-192.png', ...state.stickers.filter((s) => s.kind === 'image').map((s) => s.src)].filter(Boolean).map(preloadImg));
 }
 function offscreen(W, H) { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; }
@@ -299,7 +340,23 @@ function download(blob, name) { const a = document.createElement('a'); a.href = 
 const daysLeft = () => calc(state, new Date());
 const fname = (ext) => `TictAC-${slug()}-${daysLeft().calDays}d.${ext}`;
 
-$('#pngBtn').onclick = async () => { download(await makePng(), fname('png')); toast('Picture saved ✔'); };
+let saveUrl = null, saveFile = null;
+const coarse = () => matchMedia('(pointer: coarse)').matches;
+function showSheet(blob, name) {
+  if (saveUrl) URL.revokeObjectURL(saveUrl);
+  saveUrl = URL.createObjectURL(blob); saveFile = new File([blob], name, { type: blob.type });
+  $('#saveImg').src = saveUrl; $('#saveDl').href = saveUrl; $('#saveDl').download = name; $('#saveSheet').hidden = false;
+}
+$('#saveBtn').onclick = async () => { showSheet(await makePng(), fname('png')); };
+$('#saveShare').onclick = async () => {
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [saveFile] })) await navigator.share({ files: [saveFile], title: state.text.title });
+    else toast('Press and hold the picture to save it.');
+  } catch (e) { if (e.name !== 'AbortError') toast('Press and hold the picture to save it.'); }
+};
+$('#saveClose').onclick = () => { $('#saveSheet').hidden = true; };
+$('#saveSheet').addEventListener('click', (e) => { if (e.target.id === 'saveSheet') $('#saveSheet').hidden = true; });
+$('#pngBtn').onclick = async () => { const b = await makePng(); if (coarse()) showSheet(b, fname('png')); else { download(b, fname('png')); toast('Picture saved ✔'); } };
 $('#shareBtn').onclick = async () => {
   const blob = await makePng(), file = new File([blob], fname('png'), { type: 'image/png' });
   try {
@@ -321,7 +378,7 @@ $('#gifBtn').onclick = async () => {
     await ensureAssets(); const z = sizeOf(), q = +$('#gifQ').value, k = Math.min(q / Math.min(z.w, z.h), (q * 1.8) / Math.max(z.w, z.h), 1), w = Math.round(z.w * k), h = Math.round(z.h * k), N = 40, now = new Date();
     const c = offscreen(w, h), g = c.getContext('2d', { willReadFrequently: true }), enc = new GifEncoder(w, h);
     for (let i = 0; i < N; i++) { render(g, w, h, state, i / N, { now }); enc.addFrame(g.getImageData(0, 0, w, h).data, LOOP_MS / N); prog('#gifProg', (i + 1) / N, `Frame ${i + 1} / ${N}`); await tick(); }
-    const blob = enc.finish(); download(blob, fname('gif')); toast(`GIF saved ✔ (${(blob.size / 1048576).toFixed(1)} MB)`);
+    const blob = enc.finish(); if (coarse()) showSheet(blob, fname('gif')); else { download(blob, fname('gif')); toast(`GIF saved ✔ (${(blob.size / 1048576).toFixed(1)} MB)`); }
   } catch (e) { console.error(e); toast('Could not make the GIF: ' + e.message); }
   prog('#gifProg', null); busy = false; $('#gifBtn').disabled = false;
 };
@@ -361,7 +418,7 @@ loadStore(); buildUI(); sizeCanvas(); refreshUI(); updateCaption();
 [state.text.titleFont, state.text.numFont, 'Fredoka', 'Lobster', 'Bangers', 'Pacifico', 'Righteous', 'Caveat', 'Anton'].forEach(loadFont);
 preloadImg('logo-192.png');
 requestAnimationFrame(loop);
-const APP_VERSION = '2026-10-21-5';
+const APP_VERSION = '2026-10-21-6';
 if (/^https?:/.test(location.protocol)) {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then((r) => r.update()).catch(() => {});
   const checkUpdate = () => fetch('version.json?' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (j.v && j.v !== APP_VERSION) $('#updateBar').hidden = false; }).catch(() => {});

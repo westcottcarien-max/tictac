@@ -82,6 +82,47 @@ function getImg(src) {
 }
 function preloadImg(src) { getImg(src); return IMGS.get(src).p; }
 
+/* ---------- real sticker artwork (Google Noto emoji, falls back to Twemoji, then the device emoji font) ---------- */
+function emojiUrls(ch) {
+  const cps = [...ch].map((x) => x.codePointAt(0).toString(16)), noVs = cps.filter((x) => x !== 'fe0f');
+  const noto = (a) => `https://fonts.gstatic.com/s/e/notoemoji/latest/${a.join('_')}/512.png`;
+  const urls = [noto(cps)]; if (noVs.length !== cps.length) urls.push(noto(noVs));
+  urls.push(`https://cdn.jsdelivr.net/gh/jdecked/twemoji@15.1.0/assets/svg/${noVs.join('-')}.svg`);
+  return urls;
+}
+const STK = new Map();
+function stkEntry(ch) {
+  let e = STK.get(ch);
+  if (!e) {
+    e = { img: null, done: false, i: 0, urls: emojiUrls(ch), cut: new Map() };
+    e.p = new Promise((res) => {
+      const next = () => {
+        if (e.i >= e.urls.length) { e.done = true; res(); return; }
+        const im = new Image(); im.crossOrigin = 'anonymous';
+        im.onload = () => { e.img = im; res(); }; im.onerror = next; im.src = e.urls[e.i++];
+      };
+      next();
+    });
+    STK.set(ch, e);
+  }
+  return e;
+}
+const preloadSticker = (ch) => stkEntry(ch).p;
+/* the sticker picture with a white die-cut border, cached per size */
+function cutout(ch, px, border) {
+  const e = stkEntry(ch); if (!e.img) return null;
+  px = Math.max(16, Math.round(px / 8) * 8); const key = px + (border ? 'b' : 'n');
+  let cv = e.cut.get(key); if (cv) return cv;
+  const r = border ? Math.max(3, Math.round(px * 0.05)) : 0, pad = r + 2, W = px + pad * 2;
+  cv = document.createElement('canvas'); cv.width = cv.height = W; const g = cv.getContext('2d');
+  if (border) {
+    const sil = document.createElement('canvas'); sil.width = sil.height = W; const sg = sil.getContext('2d');
+    sg.drawImage(e.img, pad, pad, px, px); sg.globalCompositeOperation = 'source-in'; sg.fillStyle = '#ffffff'; sg.fillRect(0, 0, W, W);
+    for (let k = 0; k < 28; k++) { const a = (k / 28) * TAU; g.drawImage(sil, Math.cos(a) * r, Math.sin(a) * r); g.drawImage(sil, Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55); }
+  }
+  g.drawImage(e.img, pad, pad, px, px); e.cut.set(key, cv); return cv;
+}
+
 /* ---------- time maths ---------- */
 const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 function addMonths(d, n) {
@@ -339,23 +380,55 @@ function drawTimer(c, W, H, st, info, u, t) {
 }
 
 /* ---------- text, frame, logo ---------- */
-function drawTexts(c, W, H, st, info, u) {
-  const L = layoutOf(W, H), x = st.text, cx = L.tx, mw = L.mw, ff = fam(x.titleFont);
-  let title = x.title || '';
-  if (title) {
-    let size = x.titleSize * u; c.font = `700 ${size}px ${ff}`;
-    let lines = wrap(c, title, mw);
-    while (lines.length > 2 && size > 30 * u) { size *= 0.92; c.font = `700 ${size}px ${ff}`; lines = wrap(c, title, mw); }
-    size = Math.min(size, ...lines.map((l) => fitSize(c, l, ff, size, mw)));
-    const lh = size * 1.08, y0 = H * (L.banner ? x.titleY + 0.2 : x.titleY) - ((lines.length - 1) * lh) / 2;
-    lines.forEach((l, i) => txt(c, l, cx, y0 + i * lh, { font: ff, size, color: x.color, glow: 0, stroke: x.titleOutline ? rgba('#000000', 0.55) : '' }));
-    let sub = x.subtitle;
-    if (!sub && x.showDate) {
-      try { sub = info.target.toLocaleDateString((info.T || LANGS.en).tag, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { sub = st.event.date; }
+/* ---------- text boxes: wrap inside a box instead of shrinking ---------- */
+function wrapText(c, text, maxW) {
+  const out = [];
+  String(text).split('\n').forEach((para) => {
+    const words = para.split(/\s+/).filter(Boolean); let cur = '';
+    if (!words.length) { out.push(''); return; }
+    const breakLong = (w) => { let part = ''; for (const ch of w) { if (c.measureText(part + ch).width > maxW && part) { out.push(part); part = ch; } else part += ch; } return part; };
+    for (const w of words) {
+      const t = cur ? cur + ' ' + w : w;
+      if (c.measureText(t).width <= maxW) { cur = t; continue; }
+      if (cur) { out.push(cur); cur = ''; }
+      cur = c.measureText(w).width > maxW ? breakLong(w) : w;
     }
-    if (sub) { const ss = fitSize(c, sub, fam('Fredoka'), 52 * u, mw, 600); txt(c, sub, cx, y0 + (lines.length - 1) * lh + size * 0.72 + ss * 0.55, { font: fam('Fredoka'), size: ss, color: x.color, alpha: 0.92, weight: 600 }); }
+    out.push(cur);
+  });
+  return out;
+}
+function layoutText(c, text, font, size, boxW, weight = 700) {
+  c.font = `${weight} ${size}px ${font}`;
+  const lines = wrapText(c, text, boxW), lh = size * 1.14; return { lines, lh, h: Math.max(lines.length, 1) * lh };
+}
+function paintLines(c, L, boxW, align, o) { // box is centred on the origin
+  const x = align === 'left' ? -boxW / 2 : align === 'right' ? boxW / 2 : 0;
+  L.lines.forEach((l, i) => txt(c, l, x, -L.h / 2 + L.lh * (i + 0.5), { ...o, align }));
+}
+const BLOCK_DEF = { title: { x: 0.5, y: 0.17, w: 0.88 }, subtitle: { x: 0.5, y: 0.275, w: 0.88 }, footer: { x: 0.5, y: 0.9, w: 0.88 } };
+const BLOCK_BANNER = { title: { x: 0.26, y: 0.36, w: 0.44 }, subtitle: { x: 0.26, y: 0.52, w: 0.44 }, footer: { x: 0.26, y: 0.84, w: 0.44 } };
+function blockText(st, key, info) {
+  if (key !== 'subtitle') return st.text[key] || '';
+  if (st.text.subtitle) return st.text.subtitle;
+  if (!st.text.showDate) return '';
+  try { return info.target.toLocaleDateString((info.T || LANGS.en).tag, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); } catch (e) { return st.event.date; }
+}
+function drawBlocks(c, W, H, st, info, u) {
+  const lay0 = layoutOf(W, H), def = lay0.banner ? BLOCK_BANNER : BLOCK_DEF; let tb = null;
+  for (const key of ['title', 'subtitle', 'footer']) {
+    const b = st.blocks[key]; b._b = null;
+    const text = blockText(st, key, info); if (!text) continue;
+    const font = fam(b.font || (key === 'title' ? st.text.titleFont : 'Fredoka')), color = b.color || st.text.color, weight = key === 'title' ? 700 : 600, size = b.size * u;
+    const p = b.pos && b.pos[st.size], auto = !p && key === 'subtitle' && tb, g = p ? { ...p } : { ...def[key] };
+    if (auto) { g.x = tb.x; g.w = tb.w; }
+    const bw = g.w * W, L = layoutText(c, text, font, size, bw, weight);
+    if (auto) g.y = (tb.bottom + 14 * u + L.h / 2) / H;
+    c.save(); c.translate(g.x * W, g.y * H);
+    paintLines(c, L, bw, b.align || 'center', { font, size, color, weight, alpha: key === 'title' ? 1 : 0.93, stroke: key === 'title' && st.text.titleOutline ? rgba('#000000', 0.55) : '' });
+    c.restore();
+    b._b = { cx: g.x * W, cy: g.y * H, w: bw, h: L.h, rot: 0, geo: g };
+    if (key === 'title') tb = { x: g.x, w: g.w, bottom: g.y * H + L.h / 2 };
   }
-  if (x.footer) { const fs = fitSize(c, x.footer, fam('Fredoka'), 56 * u, mw, 600); txt(c, x.footer, cx, H * (L.banner ? 0.84 : 0.9), { font: fam('Fredoka'), size: fs, color: x.color, weight: 600 }); }
 }
 function drawFrame(c, W, H, st, u, t) {
   const f = st.frame; if (f.style === 'none') return;
@@ -440,12 +513,17 @@ function drawSticker(c, s, W, H, u, t) {
   const a = animXf(s.anim, t, u);
   c.save();
   c.translate(s.x * W + (a.dx || 0), s.y * H + (a.dy || 0)); c.rotate((s.rot || 0) * Math.PI / 180 + (a.r || 0));
-  const k = a.s || 1; c.scale(k * (a.sx || 1) * (s.flip ? -1 : 1), k * (a.sy || 1));
+  const k = a.s || 1; c.scale(k * (a.sx || 1) * (s.flip && s.kind !== 'textbox' ? -1 : 1), k * (a.sy || 1));
   if (a.a !== undefined) c.globalAlpha = a.a;
   let w, h;
   if (s.kind === 'emoji') {
-    const size = s.size * u; c.font = `${size}px ${EMOJI_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.shadowColor = 'rgba(0,0,0,.25)'; c.shadowBlur = 12 * u; c.shadowOffsetY = 6 * u; c.fillText(s.v, 0, size * 0.06); w = h = size * 1.15;
+    const size = s.size * u, e = stkEntry(s.v), cut = cutout(s.v, size * 0.96, s.border !== false);
+    c.shadowColor = 'rgba(0,0,0,.28)'; c.shadowBlur = 14 * u; c.shadowOffsetY = 7 * u;
+    if (cut) { c.drawImage(cut, -cut.width / 2, -cut.height / 2); w = h = cut.width; }
+    else {
+      w = h = size * 1.1;
+      if (e.done) { c.font = `${size}px ${EMOJI_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(s.v, 0, size * 0.06); }
+    }
   } else if (s.kind === 'image') {
     const im = getImg(s.src), sh = s.shape || 'none'; w = s.size * u; h = w;
     if (im) {
@@ -462,6 +540,9 @@ function drawSticker(c, s, W, H, u, t) {
         path(); c.lineWidth = w * 0.045; c.strokeStyle = s.bc || '#fff'; c.stroke();
       }
     }
+  } else if (s.kind === 'textbox') {
+    const fs = s.size * u, bw = (s.w || 0.6) * W, font = fam(s.font || 'Fredoka'), L = layoutText(c, s.v || '', font, fs, bw, 700);
+    paintLines(c, L, bw, s.align || 'center', { font, size: fs, color: s.color || '#ffffff', weight: 700, stroke: s.outline ? rgba('#000000', 0.55) : '' }); w = bw; h = Math.max(L.h, fs);
   } else { ({ w, h } = drawWording(c, s, u)); }
   c.restore();
   s._b = { cx: s.x * W, cy: s.y * H, w: w * k, h: h * k, rot: (s.rot || 0) * Math.PI / 180 };
@@ -495,7 +576,7 @@ function render(c, W, H, st, t, opts = {}) {
   drawBg(c, W, H, st, u);
   drawParticles(c, W, H, st.bg, t, u);
   if (st.bg.vignette > 0) { const g = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.hypot(W, H) / 2); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, `rgba(0,0,0,${st.bg.vignette})`); c.fillStyle = g; c.fillRect(0, 0, W, H); }
-  drawTexts(c, W, H, st, info, u);
+  if (st.blocks) drawBlocks(c, W, H, st, info, u);
   drawTimer(c, W, H, st, info, u, t);
   drawFrame(c, W, H, st, u, t);
   st.stickers.forEach((s) => drawSticker(c, s, W, H, u, t));

@@ -45,6 +45,24 @@
       <button data-tab="share">📤 Share</button>
     </nav>
 
+    <div id="stkEdit" class="editbox" hidden>
+      <h3>Selected item <small id="seHint"></small></h3>
+      <label class="field" id="sMsgF"><span>Text <small>(long text wraps inside the box)</small></span><textarea id="sMsg" rows="2" maxlength="240"></textarea></label>
+      <div class="row3" id="sTxtRow">
+        <label class="field"><span>Align</span><select id="sAlign"><option value="left">⬅ Left</option><option value="center">⬌ Centre</option><option value="right">➡ Right</option></select></label>
+        <label class="field"><span>Font</span><select id="sFont"></select></label>
+        <label class="field"><span>Colour</span><input type="color" id="sTc"></label>
+      </div>
+      <div class="row"><label class="field"><span>Size</span><input type="range" id="sSize" min="20" max="700"></label><label class="field" id="sRotF"><span>Rotate</span><input type="range" id="sRot" min="-180" max="180"></label></div>
+      <div class="row"><label class="field" id="sAnimF"><span>Animation</span>
+        <select id="sAnim"><option value="none">None</option><option value="bounce">Bounce</option><option value="pulse">Pulse</option><option value="heartbeat">Heartbeat</option><option value="spin">Spin</option><option value="wiggle">Wiggle</option><option value="swing">Swing</option><option value="float">Float</option><option value="twinkle">Twinkle</option></select></label>
+        <div class="btnrow"><button class="btn sm" id="sFlip">⇋ Flip</button><button class="btn sm" id="sDup">⧉ Copy</button><button class="btn sm" id="sFront">⬆ Front</button><button class="btn sm danger" id="sDel">🗑</button></div></div>
+      <label class="check" id="sCutRow"><input type="checkbox" id="sCut"> White sticker border</label>
+      <div class="row" id="sImg"><label class="field"><span>Photo shape</span><select id="sShape"><option value="circle">Circle</option><option value="rounded">Rounded</option><option value="heart">Heart</option><option value="polaroid">Polaroid</option><option value="none">Original</option></select></label><label class="field"><span>Border colour</span><input type="color" id="sBorder"></label></div>
+      <div class="row" id="sColors"><label class="field"><span>Colour 1</span><input type="color" id="sC1"></label><label class="field"><span>Colour 2</span><input type="color" id="sC2"></label></div>
+      <label class="field" id="sTextRow"><span>Wording</span><input type="text" id="sText" maxlength="40"></label>
+    </div>
+
     <!-- EVENT -->
     <div class="tab on" id="tab-event">
       <label class="field"><span>Event name</span><input type="text" data-k="text.title" maxlength="60" placeholder="e.g. Christmas"></label>
@@ -139,6 +157,9 @@
 
     <!-- TEXT -->
     <div class="tab" id="tab-text">
+      <button class="btn primary full" id="addTextBtn">＋ Add a text box</button>
+      <p class="note">👆 Tap any text on the picture to move it, align it, change its font or colour. Drag the purple dot sideways to change the box width – long text wraps inside the box.</p>
+      <button class="btn sm ghost" id="resetText">↺ Put title, line &amp; message back in their default places</button>
       <label class="field"><span>Line under the title <small>(empty = show the date)</small></span><input type="text" data-k="text.subtitle" maxlength="70"></label>
       <label class="check"><input type="checkbox" data-k="text.showDate"> Show the event date when the line is empty</label>
       <label class="field"><span>Message at the bottom</span><input type="text" data-k="text.footer" maxlength="60" placeholder="e.g. Can't wait to see you all!"></label>
@@ -149,10 +170,9 @@
       <div class="row3">
         <label class="field"><span>Text colour</span><input type="color" data-k="text.color"></label>
         <label class="field"><span>Accent colour</span><input type="color" data-k="text.accent"></label>
-        <label class="field"><span>Title size</span><input type="range" min="50" max="200" data-k="text.titleSize"></label>
+        <label class="field"><span>Title size</span><input type="range" min="40" max="260" data-k="blocks.title.size"></label>
       </div>
       <div class="row">
-        <label class="field"><span>Title height</span><input type="range" min="0.06" max="0.4" step="0.01" data-k="text.titleY"></label>
         <label class="check mt"><input type="checkbox" data-k="text.titleOutline"> Dark outline on title</label>
       </div>
       <label class="check"><input type="checkbox" data-k="logo"> Show the TictAC badge in the corner</label>
@@ -190,16 +210,6 @@
         <p class="note">Free animated stickers &amp; GIFs: <a href="https://giphy.com/stickers" target="_blank" rel="noopener">GIPHY</a> · <a href="https://tenor.com" target="_blank" rel="noopener">Tenor</a> · <a href="https://openmoji.org" target="_blank" rel="noopener">OpenMoji</a> · <a href="https://www.flaticon.com/free-stickers" target="_blank" rel="noopener">Flaticon</a>. Save PNG stickers and upload them here. Animated GIF files keep only their first frame – use the sticker animations below to make them move.</p>
       </div>
 
-      <div id="stkEdit" class="editbox" hidden>
-        <h3>Selected sticker</h3>
-        <div class="row"><label class="field"><span>Size</span><input type="range" id="sSize" min="30" max="700"></label><label class="field"><span>Rotate</span><input type="range" id="sRot" min="-180" max="180"></label></div>
-        <div class="row"><label class="field"><span>Animation</span>
-          <select id="sAnim"><option value="none">None</option><option value="bounce">Bounce</option><option value="pulse">Pulse</option><option value="heartbeat">Heartbeat</option><option value="spin">Spin</option><option value="wiggle">Wiggle</option><option value="swing">Swing</option><option value="float">Float</option><option value="twinkle">Twinkle</option></select></label>
-          <div class="btnrow"><button class="btn sm" id="sFlip">⇋ Flip</button><button class="btn sm" id="sDup">⧉ Copy</button><button class="btn sm" id="sFront">⬆ Front</button><button class="btn sm danger" id="sDel">🗑</button></div></div>
-        <div class="row" id="sImg"><label class="field"><span>Photo shape</span><select id="sShape"><option value="circle">Circle</option><option value="rounded">Rounded</option><option value="heart">Heart</option><option value="polaroid">Polaroid</option><option value="none">Original</option></select></label><label class="field"><span>Border colour</span><input type="color" id="sBorder"></label></div>
-        <div class="row" id="sColors"><label class="field"><span>Colour 1</span><input type="color" id="sC1"></label><label class="field"><span>Colour 2</span><input type="color" id="sC2"></label></div>
-        <label class="field" id="sTextRow"><span>Wording</span><input type="text" id="sText" maxlength="40"></label>
-      </div>
       <button class="btn ghost full" id="clearStk">Remove all stickers</button>
     </div>
 
@@ -207,10 +217,12 @@
     <div class="tab" id="tab-share">
       <h3>Today’s picture</h3>
       <div class="btnrow big">
-        <button class="btn primary" id="shareBtn">📤 Share…</button>
+        <button class="btn primary" id="saveBtn">💾 Save to my phone gallery</button>
+        <button class="btn" id="shareBtn">📤 Share…</button>
         <button class="btn" id="pngBtn">⬇ Download PNG</button>
         <button class="btn" id="copyBtn">📋 Copy image</button>
       </div>
+      <p class="note"><b>Save to my phone gallery</b> shows the whole picture full-size – press and hold it and choose “Save to Photos” (iPhone) or “Download image” (Android). </p>
       <p class="note">“Share…” opens your phone’s share sheet so you can send the picture straight to WhatsApp, Instagram, Facebook, Telegram, TikTok and more. On a computer it downloads the image instead.</p>
       <h3>Animated GIF <small>(stickers &amp; effects move)</small></h3>
       <div class="row">
@@ -238,6 +250,13 @@
     </div>
   </section>
 </main>
+<div class="sheet" id="saveSheet" hidden>
+  <div class="sheet-in">
+    <div class="sheet-img"><img id="saveImg" alt="Your finished picture"></div>
+    <p class="sheet-tip">📱 <b>Press and hold the picture</b>, then choose <b>“Save to Photos”</b> (iPhone) or <b>“Download image”</b> (Android). The whole picture is saved.</p>
+    <div class="btnrow big"><button class="btn primary" id="saveShare">📤 Share / Save…</button><a class="btn" id="saveDl">⬇ Download</a><button class="btn" id="saveClose">✕ Close</button></div>
+  </div>
+</div>
 <div class="update" id="updateBar" hidden><span>✨ A new version of TictAC is ready – please reload.</span><button class="btn sm primary" id="reloadBtn">Reload now</button></div>
 <div class="toast" id="toast" role="status"></div>
 
