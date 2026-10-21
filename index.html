@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TictAC – Countdown Maker</title>
+<meta name="description" content="Make beautiful countdown pictures and GIFs for any holiday or special event, and share them anywhere.">
+<meta name="theme-color" content="#8b5cf6">
+<link rel="icon" href="logo-192.png">
+<link rel="apple-touch-icon" href="logo-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Pacifico&family=Lobster&family=Bangers&family=Playfair+Display:wght@700&family=Orbitron:wght@700&family=Dancing+Script:wght@700&family=Caveat:wght@700&family=Righteous&family=Anton&family=Poppins:wght@600;700&family=Chewy&family=Creepster&family=Mountains+of+Christmas:wght@700&family=Great+Vibes&family=Luckiest+Guy&family=Press+Start+2P&family=Permanent+Marker&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <img src="logo-192.png" alt="TictAC logo" class="brand-logo">
+  <div class="brand"><b>TictAC</b><span>Countdown maker for every occasion</span></div>
+  <div class="mine">
+    <select id="mySel" aria-label="My countdowns"></select>
+    <button class="btn sm" id="newBtn" title="New countdown">＋ New</button>
+    <button class="btn sm ghost" id="dupBtn" title="Duplicate">⧉</button>
+    <button class="btn sm ghost danger" id="delBtn" title="Delete">🗑</button>
+  </div>
+</header>
+
+<main class="app">
+  <section class="stage">
+    <div class="canvas-wrap"><canvas id="cv"></canvas></div>
+    <div class="sizebar" id="sizeBar"></div>
+    <div class="hint" id="stageHint">Tip: drag stickers on the picture · drag the purple handle to resize &amp; rotate</div>
+  </section>
+
+  <section class="panel">
+    <nav class="tabs" id="tabs">
+      <button data-tab="event" class="on">🎯 Event</button>
+      <button data-tab="timer">⏱ Timer</button>
+      <button data-tab="look">🎨 Look</button>
+      <button data-tab="text">✍️ Text</button>
+      <button data-tab="stickers">🧸 Stickers</button>
+      <button data-tab="share">📤 Share</button>
+    </nav>
+
+    <!-- EVENT -->
+    <div class="tab on" id="tab-event">
+      <label class="field"><span>Event name</span><input type="text" data-k="text.title" maxlength="60" placeholder="e.g. Christmas"></label>
+      <div class="row">
+        <label class="field"><span>Date</span><input type="date" data-k="event.date"></label>
+        <label class="field"><span>Time</span><input type="time" data-k="event.time"></label>
+      </div>
+      <label class="check"><input type="checkbox" id="applyTheme" checked> Apply the occasion’s look when I pick one (colours, stickers, effects)</label>
+      <button class="btn full" id="ownBtn">✏️ Create my own – start a blank countdown</button>
+      <h3>Or pick an occasion</h3>
+      <input type="search" id="evSearch" placeholder="Search… (Christmas, birthday, Diwali, Heritage Day…)">
+      <div id="evList" class="evlist"></div>
+      <p class="note">Moon-based holidays (Eid, Ramadan, Diwali…) are approximate – please double-check the exact date.</p>
+    </div>
+
+    <!-- TIMER -->
+    <div class="tab" id="tab-timer">
+      <h3>Timer style</h3>
+      <div id="styleGrid" class="cards"></div>
+      <div class="row">
+        <label class="field"><span>Show</span>
+          <select data-k="timer.units">
+            <option value="d">Days only</option><option value="dhms">Days · Hours · Min · Sec</option><option value="dhm">Days · Hours · Min</option>
+            <option value="hms">Hours · Min · Sec</option><option value="wd">Weeks · Days</option><option value="mwd">Months · Weeks · Days</option>
+          </select></label>
+        <label class="field"><span>Language</span><select data-k="timer.lang" id="langSel"></select></label>
+      </div>
+      <label class="field"><span>Custom wording after the number <small>(leave empty for “days to go”)</small></span>
+        <input type="text" data-k="timer.label" list="labelIdeas" maxlength="40" placeholder="sleeps to go"></label>
+      <datalist id="labelIdeas"><option value="sleeps to go"><option value="days to go"><option value="days until we meet"><option value="more days"><option value="days of freedom left"><option value="slapies oor"><option value="dae tot vakansie"><option value="days of school left"></datalist>
+      <div class="row" id="boxOpts">
+        <label class="field"><span>Box style</span>
+          <select data-k="timer.box"><option value="glass">Glass</option><option value="solid">Solid colour</option><option value="flip">Flip clock</option><option value="outline">Outline</option><option value="round">Pills</option></select></label>
+        <label class="field"><span>Glass opacity</span><input type="range" min="0" max="0.6" step="0.02" data-k="timer.boxOpacity"></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Dot shape <small>(Dot Calendar)</small></span>
+          <select data-k="timer.dotShape"><option value="heart">Hearts</option><option value="circle">Circles</option><option value="star">Stars</option><option value="square">Squares</option></select></label>
+        <label class="check mt"><input type="checkbox" data-k="timer.glow"> Glow effect</label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Timer size</span><input type="range" min="0.5" max="1.4" step="0.02" data-k="timer.scale"></label>
+        <label class="field"><span>Timer height</span><input type="range" min="0.25" max="0.75" step="0.01" data-k="timer.y"></label>
+      </div>
+      <label class="field"><span>Message when the day arrives</span><input type="text" data-k="timer.doneText" maxlength="30" placeholder="It's here! 🎉"></label>
+    </div>
+
+    <!-- LOOK -->
+    <div class="tab" id="tab-look">
+      <h3>Background</h3>
+      <div class="seg" id="bgType"><button data-v="gradient" class="on">Colours</button><button data-v="photo">My photo</button></div>
+      <div id="gradGrid" class="swatches"></div>
+      <div class="row3">
+        <label class="field"><span>Colour 1</span><input type="color" data-k="bg.c1"></label>
+        <label class="field"><span>Colour 2</span><input type="color" data-k="bg.c2"></label>
+        <label class="field"><span>Angle</span><input type="range" min="0" max="360" data-k="bg.angle"></label>
+      </div>
+      <div id="photoOpts" hidden>
+        <label class="btn full"><input type="file" id="bgFile" accept="image/*" hidden> 📷 Choose a photo</label>
+        <div class="row">
+          <label class="field"><span>Darken</span><input type="range" min="0" max="0.8" step="0.02" data-k="bg.dim"></label>
+          <label class="field"><span>Blur</span><input type="range" min="0" max="30" step="1" data-k="bg.blur"></label>
+        </div>
+        <p class="note">Free photos: <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a> · <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> · <a href="https://pixabay.com" target="_blank" rel="noopener">Pixabay</a> – download one and upload it here.</p>
+      </div>
+      <h3>Pattern</h3>
+      <div id="patGrid" class="chips"></div>
+      <div class="row">
+        <label class="field"><span>Pattern colour</span><input type="color" data-k="bg.patColor"></label>
+        <label class="field"><span>Pattern strength</span><input type="range" min="0.03" max="0.5" step="0.01" data-k="bg.patOp"></label>
+      </div>
+      <h3>Animated effects <small>(move in the preview and in the GIF)</small></h3>
+      <div id="partGrid" class="chips"></div>
+      <div class="row">
+        <label class="field"><span>Amount</span><input type="range" min="5" max="90" step="1" data-k="bg.pCount"></label>
+        <label class="field"><span>Dark edges</span><input type="range" min="0" max="0.7" step="0.02" data-k="bg.vignette"></label>
+      </div>
+      <h3>Border</h3>
+      <div id="frameGrid" class="chips"></div>
+      <label class="field"><span>Border colour</span><input type="color" data-k="frame.color"></label>
+    </div>
+
+    <!-- TEXT -->
+    <div class="tab" id="tab-text">
+      <label class="field"><span>Line under the title <small>(empty = show the date)</small></span><input type="text" data-k="text.subtitle" maxlength="70"></label>
+      <label class="check"><input type="checkbox" data-k="text.showDate"> Show the event date when the line is empty</label>
+      <label class="field"><span>Message at the bottom</span><input type="text" data-k="text.footer" maxlength="60" placeholder="e.g. Can't wait to see you all!"></label>
+      <div class="row">
+        <label class="field"><span>Title font</span><select data-k="text.titleFont" id="fontTitle"></select></label>
+        <label class="field"><span>Number font</span><select data-k="text.numFont" id="fontNum"></select></label>
+      </div>
+      <div class="row3">
+        <label class="field"><span>Text colour</span><input type="color" data-k="text.color"></label>
+        <label class="field"><span>Accent colour</span><input type="color" data-k="text.accent"></label>
+        <label class="field"><span>Title size</span><input type="range" min="50" max="200" data-k="text.titleSize"></label>
+      </div>
+      <div class="row">
+        <label class="field"><span>Title height</span><input type="range" min="0.06" max="0.4" step="0.01" data-k="text.titleY"></label>
+        <label class="check mt"><input type="checkbox" data-k="text.titleOutline"> Dark outline on title</label>
+      </div>
+      <label class="check"><input type="checkbox" data-k="logo"> Show the TictAC badge in the corner</label>
+    </div>
+
+    <!-- STICKERS -->
+    <div class="tab" id="tab-stickers">
+      <div class="seg" id="stkMode"><button data-v="emoji" class="on">😀 Stickers</button><button data-v="words">💬 Wording</button><button data-v="img">📷 My photos</button></div>
+
+      <div id="stk-emoji">
+        <div id="stkCats" class="chips"></div>
+        <div id="stkGrid" class="emogrid"></div>
+      </div>
+
+      <div id="stk-words" hidden>
+        <div class="row">
+          <label class="field"><span>Occasion</span><select id="phOcc"></select></label>
+          <label class="field"><span>Look</span><select id="phStyle"></select></label>
+        </div>
+        <div class="row">
+          <label class="field"><span>Colour 1</span><input type="color" id="phC1" value="#8b5cf6"></label>
+          <label class="field"><span>Colour 2</span><input type="color" id="phC2" value="#ffffff"></label>
+        </div>
+        <div id="phList" class="phlist"></div>
+        <div class="row addrow"><input type="text" id="phCustom" maxlength="40" placeholder="Type your own wording…"><button class="btn" id="phAdd">Add</button></div>
+      </div>
+
+      <div id="stk-img" hidden>
+        <p class="note">Take a photo or pick one from your phone gallery and place it on the countdown – add as many as you like.</p>
+        <div class="row">
+          <label class="field"><span>Photo shape</span><select id="imgShape"><option value="circle">Circle</option><option value="rounded">Rounded</option><option value="heart">Heart</option><option value="polaroid">Polaroid</option><option value="none">Original (logo / PNG)</option></select></label>
+          <label class="field"><span>Border colour</span><input type="color" id="imgBorder" value="#ffffff"></label>
+        </div>
+        <label class="btn primary full"><input type="file" id="imgFile" accept="image/*" multiple hidden> 📷 Add photo(s) from my phone / camera</label>
+        <p class="note">Free animated stickers &amp; GIFs: <a href="https://giphy.com/stickers" target="_blank" rel="noopener">GIPHY</a> · <a href="https://tenor.com" target="_blank" rel="noopener">Tenor</a> · <a href="https://openmoji.org" target="_blank" rel="noopener">OpenMoji</a> · <a href="https://www.flaticon.com/free-stickers" target="_blank" rel="noopener">Flaticon</a>. Save PNG stickers and upload them here. Animated GIF files keep only their first frame – use the sticker animations below to make them move.</p>
+      </div>
+
+      <div id="stkEdit" class="editbox" hidden>
+        <h3>Selected sticker</h3>
+        <div class="row"><label class="field"><span>Size</span><input type="range" id="sSize" min="30" max="700"></label><label class="field"><span>Rotate</span><input type="range" id="sRot" min="-180" max="180"></label></div>
+        <div class="row"><label class="field"><span>Animation</span>
+          <select id="sAnim"><option value="none">None</option><option value="bounce">Bounce</option><option value="pulse">Pulse</option><option value="heartbeat">Heartbeat</option><option value="spin">Spin</option><option value="wiggle">Wiggle</option><option value="swing">Swing</option><option value="float">Float</option><option value="twinkle">Twinkle</option></select></label>
+          <div class="btnrow"><button class="btn sm" id="sFlip">⇋ Flip</button><button class="btn sm" id="sDup">⧉ Copy</button><button class="btn sm" id="sFront">⬆ Front</button><button class="btn sm danger" id="sDel">🗑</button></div></div>
+        <div class="row" id="sImg"><label class="field"><span>Photo shape</span><select id="sShape"><option value="circle">Circle</option><option value="rounded">Rounded</option><option value="heart">Heart</option><option value="polaroid">Polaroid</option><option value="none">Original</option></select></label><label class="field"><span>Border colour</span><input type="color" id="sBorder"></label></div>
+        <div class="row" id="sColors"><label class="field"><span>Colour 1</span><input type="color" id="sC1"></label><label class="field"><span>Colour 2</span><input type="color" id="sC2"></label></div>
+        <label class="field" id="sTextRow"><span>Wording</span><input type="text" id="sText" maxlength="40"></label>
+      </div>
+      <button class="btn ghost full" id="clearStk">Remove all stickers</button>
+    </div>
+
+    <!-- SHARE -->
+    <div class="tab" id="tab-share">
+      <h3>Today’s picture</h3>
+      <div class="btnrow big">
+        <button class="btn primary" id="shareBtn">📤 Share…</button>
+        <button class="btn" id="pngBtn">⬇ Download PNG</button>
+        <button class="btn" id="copyBtn">📋 Copy image</button>
+      </div>
+      <p class="note">“Share…” opens your phone’s share sheet so you can send the picture straight to WhatsApp, Instagram, Facebook, Telegram, TikTok and more. On a computer it downloads the image instead.</p>
+      <h3>Animated GIF <small>(stickers &amp; effects move)</small></h3>
+      <div class="row">
+        <label class="field"><span>Quality</span><select id="gifQ"><option value="360">Small (360 px)</option><option value="480" selected>Medium (480 px)</option><option value="640">Large (640 px)</option></select></label>
+        <div class="btnrow"><button class="btn" id="gifBtn">🎞 Make GIF</button></div>
+      </div>
+      <div class="progress" id="gifProg" hidden><i></i><span></span></div>
+      <h3>Every day until the event <small>(schedule your posts)</small></h3>
+      <div class="row">
+        <label class="field"><span>Picture time on each day</span><input type="time" id="packTime" value="09:00"></label>
+        <div class="btnrow"><button class="btn" id="packBtn">🗂 Download daily pack (ZIP)</button></div>
+      </div>
+      <div class="progress" id="packProg" hidden><i></i><span></span></div>
+      <p class="note">Creates one PNG for every remaining day (up to 400), each showing the right number – upload them all at once and schedule them.</p>
+      <h3>Caption &amp; quick links</h3>
+      <textarea id="caption" rows="3"></textarea>
+      <div class="btnrow">
+        <button class="btn sm" id="capBtn">↻ New caption</button>
+        <button class="btn sm" id="capCopy">📋 Copy caption</button>
+        <a class="btn sm" id="waLink" target="_blank" rel="noopener">WhatsApp</a>
+        <a class="btn sm" id="tgLink" target="_blank" rel="noopener">Telegram</a>
+        <a class="btn sm" id="xLink" target="_blank" rel="noopener">X</a>
+      </div>
+      <p class="note">Web links can only carry text, so download the picture first and attach it – or use “Share…” on your phone.</p>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="js/data.js"></script>
+<script src="js/render.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

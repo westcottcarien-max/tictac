@@ -1,0 +1,13 @@
+{
+  "name": "TictAC – Countdown Maker",
+  "short_name": "TictAC",
+  "description": "Make beautiful countdown pictures and GIFs for any holiday or special event.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f4f0ff",
+  "theme_color": "#8b5cf6",
+  "icons": [
+    { "src": "logo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
