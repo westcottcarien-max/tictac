@@ -210,8 +210,11 @@ function drawParticles(c, W, H, b, t, u) {
 function secondary(P) { return P.slice(1).map((p) => `${pad2(p.v)} ${p.l.toLowerCase()}`).join('  •  '); }
 function numStr(p) { return p.k === 'd' || p.k === 'w' || p.k === 'mo' ? String(p.v) : pad2(p.v); }
 
+/* very wide banners (Facebook cover, X header, LinkedIn banner): title on the left, timer on the right */
+function layoutOf(W, H) { const b = W / H > 2.2; return b ? { banner: true, tx: W * 0.26, mw: W * 0.44, cx: W * 0.72, aw: W * 0.52 } : { banner: false, tx: W / 2, mw: W * 0.88, cx: W / 2, aw: W * 0.9 }; }
+
 function drawTimer(c, W, H, st, info, u, t) {
-  const tm = st.timer, sc = tm.scale, cx = W / 2, cy = H * tm.y, aw = W * 0.9, P = info.parts, n = P.length;
+  const L = layoutOf(W, H), tm = st.timer, sc = tm.scale, cx = L.cx, cy = H * tm.y, aw = L.aw, P = info.parts, n = P.length;
   const tc = st.text.color, ac = st.text.accent, nf = fam(st.text.numFont), glow = tm.glow;
   const numO = (size, color = tc) => ({ font: nf, size, color, glow: glow ? size * 0.3 : 0, glowColor: ac });
   const lab = (s, x, y, size, a = 0.85, color = tc) => txt(c, s, x, y, { font: fam('Fredoka'), size, color, alpha: a, weight: 600, shadow: false });
@@ -225,7 +228,7 @@ function drawTimer(c, W, H, st, info, u, t) {
   const style = tm.style;
   if (style === 'boxes' || style === 'rings') {
     const gap = 26 * u * sc, cap = (n === 1 ? 360 : 300) * u;
-    let d = Math.min((aw - gap * (n - 1)) / n, cap) * sc; const tot = n * d + gap * (n - 1); if (tot > W * 0.96) d *= (W * 0.96) / tot;
+    let d = Math.min((aw - gap * (n - 1)) / n, cap) * sc; const tot = n * d + gap * (n - 1); if (tot > aw * 1.06) d *= (aw * 1.06) / tot;
     const x0 = cx - (n * d + gap * (n - 1)) / 2;
     P.forEach((p, i) => {
       const x = x0 + i * (d + gap), mx = x + d / 2;
@@ -331,14 +334,14 @@ function drawTimer(c, W, H, st, info, u, t) {
 
 /* ---------- text, frame, logo ---------- */
 function drawTexts(c, W, H, st, info, u) {
-  const x = st.text, cx = W / 2, mw = W * 0.88, ff = fam(x.titleFont);
+  const L = layoutOf(W, H), x = st.text, cx = L.tx, mw = L.mw, ff = fam(x.titleFont);
   let title = x.title || '';
   if (title) {
     let size = x.titleSize * u; c.font = `700 ${size}px ${ff}`;
     let lines = wrap(c, title, mw);
     while (lines.length > 2 && size > 30 * u) { size *= 0.92; c.font = `700 ${size}px ${ff}`; lines = wrap(c, title, mw); }
     size = Math.min(size, ...lines.map((l) => fitSize(c, l, ff, size, mw)));
-    const lh = size * 1.08, y0 = H * x.titleY - ((lines.length - 1) * lh) / 2;
+    const lh = size * 1.08, y0 = H * (L.banner ? x.titleY + 0.2 : x.titleY) - ((lines.length - 1) * lh) / 2;
     lines.forEach((l, i) => txt(c, l, cx, y0 + i * lh, { font: ff, size, color: x.color, glow: 0, stroke: x.titleOutline ? rgba('#000000', 0.55) : '' }));
     let sub = x.subtitle;
     if (!sub && x.showDate) {
@@ -346,7 +349,7 @@ function drawTexts(c, W, H, st, info, u) {
     }
     if (sub) { const ss = fitSize(c, sub, fam('Fredoka'), 52 * u, mw, 600); txt(c, sub, cx, y0 + (lines.length - 1) * lh + size * 0.72 + ss * 0.55, { font: fam('Fredoka'), size: ss, color: x.color, alpha: 0.92, weight: 600 }); }
   }
-  if (x.footer) { const fs = fitSize(c, x.footer, fam('Fredoka'), 56 * u, mw, 600); txt(c, x.footer, cx, H * 0.9, { font: fam('Fredoka'), size: fs, color: x.color, weight: 600 }); }
+  if (x.footer) { const fs = fitSize(c, x.footer, fam('Fredoka'), 56 * u, mw, 600); txt(c, x.footer, cx, H * (L.banner ? 0.84 : 0.9), { font: fam('Fredoka'), size: fs, color: x.color, weight: 600 }); }
 }
 function drawFrame(c, W, H, st, u, t) {
   const f = st.frame; if (f.style === 'none') return;

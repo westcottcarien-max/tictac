@@ -31,7 +31,7 @@
 <main class="app">
   <section class="stage">
     <div class="canvas-wrap"><canvas id="cv"></canvas></div>
-    <div class="sizebar" id="sizeBar"></div>
+    <div class="sizebar"><select id="sizeSel" aria-label="Picture size"></select><span id="sizeDim"></span></div>
     <div class="hint" id="stageHint">Tip: drag stickers on the picture · drag the purple handle to resize &amp; rotate</div>
   </section>
 
@@ -228,6 +228,7 @@
     </div>
   </section>
 </main>
+<div class="update" id="updateBar" hidden><span>✨ A new version of TictAC is ready – please reload.</span><button class="btn sm primary" id="reloadBtn">Reload now</button></div>
 <div class="toast" id="toast" role="status"></div>
 
 <script src="js/data.js"></script>

@@ -36,11 +36,24 @@ const PARTICLES = ['none', 'confetti', 'snow', 'flakes', 'stars', 'sparkles', 'h
 const FRAMES = ['none', 'line', 'double', 'dashed', 'white', 'lights', 'scallop'];
 
 const SIZES = [
-  { id: 'square', name: 'Square', sub: 'Instagram · Facebook · WhatsApp profile', w: 1080, h: 1080 },
-  { id: 'portrait', name: 'Portrait 4:5', sub: 'Instagram feed · Facebook', w: 1080, h: 1350 },
-  { id: 'story', name: 'Story 9:16', sub: 'WhatsApp status · Insta · TikTok · Reels · Shorts', w: 1080, h: 1920 },
-  { id: 'wide', name: 'Wide 16:9', sub: 'X / Twitter · YouTube · LinkedIn · Facebook', w: 1920, h: 1080 },
-  { id: 'pin', name: 'Pin 2:3', sub: 'Pinterest', w: 1000, h: 1500 },
+  { id: 'square', g: 'Instagram', name: 'Instagram post – square', w: 1080, h: 1080 },
+  { id: 'portrait', g: 'Instagram', name: 'Instagram post – portrait 4:5', w: 1080, h: 1350 },
+  { id: 'story', g: 'Instagram', name: 'Instagram story / reel cover', w: 1080, h: 1920 },
+  { id: 'tiktok', g: 'TikTok', name: 'TikTok video / photo', w: 1080, h: 1920 },
+  { id: 'fbfeed', g: 'Facebook', name: 'Facebook news feed – landscape', w: 1200, h: 630 },
+  { id: 'fbsquare', g: 'Facebook', name: 'Facebook news feed – square', w: 1080, h: 1080 },
+  { id: 'fbportrait', g: 'Facebook', name: 'Facebook news feed – portrait 4:5', w: 1080, h: 1350 },
+  { id: 'fbstory', g: 'Facebook', name: 'Facebook story', w: 1080, h: 1920 },
+  { id: 'fbcover', g: 'Facebook', name: 'Facebook page cover', w: 1640, h: 624 },
+  { id: 'fbevent', g: 'Facebook', name: 'Facebook event cover', w: 1920, h: 1005 },
+  { id: 'wastatus', g: 'WhatsApp', name: 'WhatsApp status', w: 1080, h: 1920 },
+  { id: 'waprofile', g: 'WhatsApp', name: 'WhatsApp profile picture', w: 1080, h: 1080 },
+  { id: 'wide', g: 'Other', name: 'X / Twitter post – 16:9', w: 1920, h: 1080 },
+  { id: 'xheader', g: 'Other', name: 'X / Twitter header', w: 1500, h: 500 },
+  { id: 'ytthumb', g: 'Other', name: 'YouTube thumbnail', w: 1280, h: 720 },
+  { id: 'lipost', g: 'Other', name: 'LinkedIn post', w: 1200, h: 627 },
+  { id: 'libanner', g: 'Other', name: 'LinkedIn banner', w: 1584, h: 396 },
+  { id: 'pin', g: 'Other', name: 'Pinterest pin 2:3', w: 1000, h: 1500 },
 ];
 
 /* Occasion keys → wording stickers: [English, Afrikaans|null] */

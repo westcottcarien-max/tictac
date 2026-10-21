@@ -77,7 +77,7 @@ function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.c
 /* ---------- canvas ---------- */
 const cv = $('#cv'), ctx = cv.getContext('2d');
 const sizeOf = () => SIZES.find((x) => x.id === state.size) || SIZES[0];
-function sizeCanvas() { const z = sizeOf(); cv.width = Math.round(z.w * 0.5); cv.height = Math.round(z.h * 0.5); }
+function sizeCanvas() { const z = sizeOf(), k = Math.min(0.5, 1000 / Math.max(z.w, z.h)); cv.width = Math.round(z.w * k); cv.height = Math.round(z.h * k); }
 function loop(ts) {
   const t = (ts % LOOP_MS) / LOOP_MS;
   render(ctx, cv.width, cv.height, state, t, { editing: true, sel });
@@ -94,7 +94,9 @@ function buildUI() {
   fillSelect($('#fontTitle'), FONTS.map((f) => [f, f])); fillSelect($('#fontNum'), FONTS.map((f) => [f, f]));
   $('#fontTitle').style.fontFamily = 'inherit';
   // sizes
-  $('#sizeBar').innerHTML = ''; SIZES.forEach((z) => { const b = document.createElement('button'); b.textContent = z.name; b.title = z.sub; b.dataset.v = z.id; b.onclick = () => { state.size = z.id; sizeCanvas(); refreshUI(); save(); }; $('#sizeBar').appendChild(b); });
+  const groups = {}; SIZES.forEach((z) => (groups[z.g] = groups[z.g] || []).push(z));
+  $('#sizeSel').innerHTML = Object.entries(groups).map(([g, l]) => `<optgroup label="${g}">${l.map((z) => `<option value="${z.id}">${z.name} (${z.w}×${z.h})</option>`).join('')}</optgroup>`).join('');
+  $('#sizeSel').onchange = (e) => { state.size = e.target.value; sizeCanvas(); refreshUI(); save(); };
   // timer styles
   $('#styleGrid').innerHTML = ''; STYLES.forEach(([id, ic, nm]) => { const b = document.createElement('button'); b.className = 'card'; b.dataset.v = id; b.innerHTML = `<span class="ic">${ic}</span>${nm}`; b.onclick = () => { state.timer.style = id; refreshUI(); save(); }; $('#styleGrid').appendChild(b); });
   // gradients
@@ -137,7 +139,7 @@ function refreshUI() {
     const v = getPath(state, el.dataset.k);
     if (el.type === 'checkbox') el.checked = !!v; else if (String(v ?? '') !== el.value) el.value = v ?? '';
   });
-  $$('#sizeBar button').forEach((b) => b.classList.toggle('on', b.dataset.v === state.size));
+  $('#sizeSel').value = sizeOf().id; $('#sizeDim').textContent = `${sizeOf().w} × ${sizeOf().h} px`;
   $$('#styleGrid .card').forEach((b) => b.classList.toggle('on', b.dataset.v === state.timer.style));
   const on = (sel_, key) => $$(sel_ + ' .chip').forEach((b) => b.classList.toggle('on', b.dataset.v === getPath(state, key)));
   on('#patGrid', 'bg.pattern'); on('#partGrid', 'bg.particles'); on('#frameGrid', 'frame.style');
@@ -299,7 +301,7 @@ let busy = false;
 $('#gifBtn').onclick = async () => {
   if (busy) return; busy = true; $('#gifBtn').disabled = true;
   try {
-    await ensureAssets(); const z = sizeOf(), q = +$('#gifQ').value, k = q / Math.min(z.w, z.h), w = Math.round(z.w * k), h = Math.round(z.h * k), N = 40, now = new Date();
+    await ensureAssets(); const z = sizeOf(), q = +$('#gifQ').value, k = Math.min(q / Math.min(z.w, z.h), (q * 1.8) / Math.max(z.w, z.h), 1), w = Math.round(z.w * k), h = Math.round(z.h * k), N = 40, now = new Date();
     const c = offscreen(w, h), g = c.getContext('2d', { willReadFrequently: true }), enc = new GifEncoder(w, h);
     for (let i = 0; i < N; i++) { render(g, w, h, state, i / N, { now }); enc.addFrame(g.getImageData(0, 0, w, h).data, LOOP_MS / N); prog('#gifProg', (i + 1) / N, `Frame ${i + 1} / ${N}`); await tick(); }
     const blob = enc.finish(); download(blob, fname('gif')); toast(`GIF saved ✔ (${(blob.size / 1048576).toFixed(1)} MB)`);
@@ -342,4 +344,9 @@ loadStore(); buildUI(); sizeCanvas(); refreshUI(); updateCaption();
 [state.text.titleFont, state.text.numFont, 'Fredoka', 'Lobster', 'Bangers', 'Pacifico', 'Righteous', 'Caveat', 'Anton'].forEach(loadFont);
 preloadImg('logo-192.png');
 requestAnimationFrame(loop);
-if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
+  const had = !!navigator.serviceWorker.controller; // an update = the controller changes after we already had one
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) $('#updateBar').hidden = false; });
+  navigator.serviceWorker.register('sw.js').then((r) => r.update()).catch(() => {});
+  $('#reloadBtn').onclick = () => location.reload();
+}
