@@ -104,6 +104,16 @@
       </div>
       <div id="photoOpts" hidden>
         <label class="btn full"><input type="file" id="bgFile" accept="image/*" hidden> 📷 Choose a photo</label>
+        <p class="note">👆 Drag the photo on the picture to move it · pinch or scroll to zoom.</p>
+        <div class="row">
+          <label class="field"><span>Photo fit</span><select data-k="bg.photoFit"><option value="fill">Fill the picture (crop)</option><option value="fit">Show the whole photo</option></select></label>
+          <label class="field"><span>Zoom</span><input type="range" min="1" max="4" step="0.02" data-k="bg.photoZoom"></label>
+        </div>
+        <div class="row">
+          <label class="field"><span>Move left ↔ right</span><input type="range" min="0" max="1" step="0.01" data-k="bg.photoX"></label>
+          <label class="field"><span>Move up ↕ down</span><input type="range" min="0" max="1" step="0.01" data-k="bg.photoY"></label>
+        </div>
+        <button class="btn sm ghost" id="photoReset">↺ Reset photo position</button>
         <div class="row">
           <label class="field"><span>Darken</span><input type="range" min="0" max="0.8" step="0.02" data-k="bg.dim"></label>
           <label class="field"><span>Blur</span><input type="range" min="0" max="30" step="1" data-k="bg.blur"></label>

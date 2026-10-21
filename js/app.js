@@ -24,7 +24,7 @@ function baseState() {
     id: uid(),
     event: { presetId: 'custom', emoji: '🎯', date: iso(d), time: '00:00', createdAt: new Date().toISOString() },
     timer: { style: 'boxes', units: 'dhms', lang: 'en', label: '', box: 'glass', boxOpacity: 0.18, dotShape: 'heart', glow: true, scale: 1, y: 0.5, doneText: '' },
-    bg: { type: 'gradient', c1: '#8b5cf6', c2: '#14c9b8', angle: 135, photo: null, dim: 0.3, blur: 0, pattern: 'none', patColor: '#ffffff', patOp: 0.14, particles: 'confetti', pCount: 36, vignette: 0.2 },
+    bg: { type: 'gradient', c1: '#8b5cf6', c2: '#14c9b8', angle: 135, photo: null, photoX: 0.5, photoY: 0.5, photoZoom: 1, photoFit: 'fill', dim: 0.3, blur: 0, pattern: 'none', patColor: '#ffffff', patOp: 0.14, particles: 'confetti', pCount: 36, vignette: 0.2 },
     text: { title: 'My Big Day', subtitle: '', footer: '', titleFont: 'Fredoka', numFont: 'Fredoka', color: '#ffffff', accent: '#ffe066', titleSize: 110, titleY: 0.17, showDate: true, titleOutline: false },
     frame: { style: 'none', color: '#ffffff' },
     size: 'square', logo: true, stickers: [],
@@ -223,7 +223,12 @@ document.addEventListener('keydown', (e) => { if ((e.key === 'Delete' || e.key =
 
 /* ---------- pointer interaction on the canvas ---------- */
 let drag = null;
-const trash = { show: false, hot: false };
+const trash = { show: false, hot: false }, ptrs = new Map();
+const photoOn = () => state.bg.type === 'photo' && state.bg.photo;
+const clamp01 = (v) => Math.min(1, Math.max(0, v));
+function syncPhotoSliders() { $$('[data-k^="bg.photo"]').forEach((el) => { const v = getPath(state, el.dataset.k); if (String(v) !== el.value) el.value = v; }); }
+$('#photoReset').onclick = () => { Object.assign(state.bg, { photoX: 0.5, photoY: 0.5, photoZoom: 1 }); syncPhotoSliders(); save(); };
+cv.addEventListener('wheel', (e) => { if (!photoOn()) return; e.preventDefault(); state.bg.photoZoom = Math.min(4, Math.max(1, (state.bg.photoZoom || 1) * (e.deltaY < 0 ? 1.06 : 0.94))); syncPhotoSliders(); save(); }, { passive: false });
 const toCv = (e) => { const r = cv.getBoundingClientRect(); return [((e.clientX - r.left) * cv.width) / r.width, ((e.clientY - r.top) * cv.height) / r.height]; };
 function hitSticker(px, py) {
   for (let i = state.stickers.length - 1; i >= 0; i--) {
@@ -234,7 +239,8 @@ function hitSticker(px, py) {
   return null;
 }
 cv.addEventListener('pointerdown', (e) => {
-  const [px, py] = toCv(e);
+  const [px, py] = toCv(e); ptrs.set(e.pointerId, [px, py]);
+  if (ptrs.size === 2 && photoOn() && (!drag || drag.m === 'bg')) { const [a, b] = [...ptrs.values()]; drag = { m: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]) || 1, z0: state.bg.photoZoom || 1 }; sel = null; return; }
   if (sel && sel._b) {
     const b = sel._b, dc = Math.cos(b.rot), ds = Math.sin(b.rot), lx = -b.w / 2 - 6, ly = -b.h / 2 - 6;
     if (Math.hypot(px - (b.cx + lx * dc - ly * ds), py - (b.cy + lx * ds + ly * dc)) < 26) { deleteSel(); toast('Deleted 🗑️', 1200); return; }
@@ -245,16 +251,20 @@ cv.addEventListener('pointerdown', (e) => {
   }
   const s = hitSticker(px, py);
   if (s) { sel = s; drag = { m: 'm', ox: px - s.x * cv.width, oy: py - s.y * cv.height }; cv.setPointerCapture(e.pointerId); switchTab('stickers'); }
-  else sel = null;
+  else { sel = null; if (photoOn()) { drag = { m: 'bg', x0: px, y0: py, bx: state.bg.photoX ?? 0.5, by: state.bg.photoY ?? 0.5 }; cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; } }
   refreshUI();
 });
 cv.addEventListener('pointermove', (e) => {
-  const [px, py] = toCv(e);
+  const [px, py] = toCv(e); if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, [px, py]);
+  if (drag && drag.m === 'pinch') { if (ptrs.size >= 2) { const [a, b] = [...ptrs.values()]; state.bg.photoZoom = Math.min(4, Math.max(1, drag.z0 * (Math.hypot(a[0] - b[0], a[1] - b[1]) / drag.d0))); syncPhotoSliders(); } return; }
+  if (drag && drag.m === 'bg') { const ov = state.bg._ov || [0, 0]; if (ov[0] > 1) state.bg.photoX = clamp01(drag.bx - (px - drag.x0) / ov[0]); if (ov[1] > 1) state.bg.photoY = clamp01(drag.by - (py - drag.y0) / ov[1]); syncPhotoSliders(); return; }
   if (!drag || !sel) { cv.style.cursor = hitSticker(px, py) ? 'move' : 'default'; return; }
   if (drag.m === 'm') { trash.show = true; trash.hot = Math.hypot(px - cv.width / 2, py - (cv.height - 58)) < 70; sel.x = Math.min(1.05, Math.max(-0.05, (px - drag.ox) / cv.width)); sel.y = Math.min(1.05, Math.max(-0.05, (py - drag.oy) / cv.height)); }
   else { const b = sel._b, d = Math.hypot(px - b.cx, py - b.cy), a = Math.atan2(py - b.cy, px - b.cx); sel.size = Math.round(Math.min(700, Math.max(30, drag.size * (d / drag.d0)))); sel.rot = Math.round(drag.rot + ((a - drag.a0) * 180) / Math.PI); if (sel.rot > 180) sel.rot -= 360; if (sel.rot < -180) sel.rot += 360; syncStickerPanel(); }
 });
-const endDrag = () => {
+const endDrag = (e) => {
+  if (e && e.pointerId !== undefined) ptrs.delete(e.pointerId);
+  if (drag && drag.m === 'pinch' && ptrs.size >= 1) return;
   if (drag) { const del = drag.m === 'm' && trash.hot; drag = null; trash.show = trash.hot = false; if (del) { deleteSel(); toast('Deleted 🗑️', 1200); } save(); }
 };
 cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
@@ -351,9 +361,11 @@ loadStore(); buildUI(); sizeCanvas(); refreshUI(); updateCaption();
 [state.text.titleFont, state.text.numFont, 'Fredoka', 'Lobster', 'Bangers', 'Pacifico', 'Righteous', 'Caveat', 'Anton'].forEach(loadFont);
 preloadImg('logo-192.png');
 requestAnimationFrame(loop);
-if ('serviceWorker' in navigator && /^https?:/.test(location.protocol)) {
-  const had = !!navigator.serviceWorker.controller; // an update = the controller changes after we already had one
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (had) $('#updateBar').hidden = false; });
-  navigator.serviceWorker.register('sw.js').then((r) => r.update()).catch(() => {});
-  $('#reloadBtn').onclick = () => location.reload();
+const APP_VERSION = '2026-10-21-5';
+if (/^https?:/.test(location.protocol)) {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then((r) => r.update()).catch(() => {});
+  const checkUpdate = () => fetch('version.json?' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (j.v && j.v !== APP_VERSION) $('#updateBar').hidden = false; }).catch(() => {});
+  setTimeout(checkUpdate, 2500); setInterval(checkUpdate, 120000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+  $('#reloadBtn').onclick = async () => { try { const ks = await caches.keys(); await Promise.all(ks.map((k) => caches.delete(k))); } catch (e) { /* ignore */ } location.reload(); };
 }

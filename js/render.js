@@ -127,9 +127,15 @@ function drawBg(c, W, H, st, u) {
   if (b.type === 'photo' && b.photo) {
     const im = getImg(b.photo);
     if (im) {
-      const k = Math.max(W / im.width, H / im.height), w = im.width * k, h = im.height * k;
-      c.save(); if (b.blur) c.filter = `blur(${b.blur * u}px)`;
-      const o = b.blur * u * 2; c.drawImage(im, (W - w) / 2 - o, (H - h) / 2 - o, w + 2 * o, h + 2 * o); c.restore();
+      const fit = b.photoFit === 'fit', z = b.photoZoom || 1, px = b.photoX ?? 0.5, py = b.photoY ?? 0.5;
+      if (fit) { // blurred copy fills the gaps around the whole photo
+        const kc = Math.max(W / im.width, H / im.height) * 1.12; c.save(); c.filter = `blur(${28 * u}px)`;
+        c.drawImage(im, (W - im.width * kc) / 2, (H - im.height * kc) / 2, im.width * kc, im.height * kc); c.restore();
+      }
+      const k = (fit ? Math.min(W / im.width, H / im.height) : Math.max(W / im.width, H / im.height)) * z * (!fit && b.blur ? 1.06 : 1), w = im.width * k, h = im.height * k;
+      const x = w > W ? -(w - W) * px : (W - w) / 2, y = h > H ? -(h - H) * py : (H - h) / 2;
+      b._ov = [Math.max(0, w - W), Math.max(0, h - H)];
+      c.save(); if (b.blur && !fit) c.filter = `blur(${b.blur * u}px)`; c.drawImage(im, x, y, w, h); c.restore();
     }
     if (b.dim > 0) { c.fillStyle = `rgba(0,0,0,${b.dim})`; c.fillRect(0, 0, W, H); }
   }
