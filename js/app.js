@@ -80,7 +80,7 @@ const sizeOf = () => SIZES.find((x) => x.id === state.size) || SIZES[0];
 function sizeCanvas() { const z = sizeOf(), k = Math.min(0.5, 1000 / Math.max(z.w, z.h)); cv.width = Math.round(z.w * k); cv.height = Math.round(z.h * k); }
 function loop(ts) {
   const t = (ts % LOOP_MS) / LOOP_MS;
-  render(ctx, cv.width, cv.height, state, t, { editing: true, sel });
+  render(ctx, cv.width, cv.height, state, t, { editing: true, sel, trash });
   requestAnimationFrame(loop);
 }
 
@@ -223,6 +223,7 @@ document.addEventListener('keydown', (e) => { if ((e.key === 'Delete' || e.key =
 
 /* ---------- pointer interaction on the canvas ---------- */
 let drag = null;
+const trash = { show: false, hot: false };
 const toCv = (e) => { const r = cv.getBoundingClientRect(); return [((e.clientX - r.left) * cv.width) / r.width, ((e.clientY - r.top) * cv.height) / r.height]; };
 function hitSticker(px, py) {
   for (let i = state.stickers.length - 1; i >= 0; i--) {
@@ -235,6 +236,10 @@ function hitSticker(px, py) {
 cv.addEventListener('pointerdown', (e) => {
   const [px, py] = toCv(e);
   if (sel && sel._b) {
+    const b = sel._b, dc = Math.cos(b.rot), ds = Math.sin(b.rot), lx = -b.w / 2 - 6, ly = -b.h / 2 - 6;
+    if (Math.hypot(px - (b.cx + lx * dc - ly * ds), py - (b.cy + lx * ds + ly * dc)) < 26) { deleteSel(); toast('Deleted 🗑️', 1200); return; }
+  }
+  if (sel && sel._b) {
     const b = sel._b, hx = b.w / 2 + 6, hy = b.h / 2 + 6, c = Math.cos(b.rot), si = Math.sin(b.rot), X = b.cx + hx * c - hy * si, Y = b.cy + hx * si + hy * c;
     if (Math.hypot(px - X, py - Y) < 26) { drag = { m: 'h', size: sel.size, rot: sel.rot || 0, d0: Math.hypot(px - b.cx, py - b.cy), a0: Math.atan2(py - b.cy, px - b.cx) }; cv.setPointerCapture(e.pointerId); return; }
   }
@@ -246,10 +251,12 @@ cv.addEventListener('pointerdown', (e) => {
 cv.addEventListener('pointermove', (e) => {
   const [px, py] = toCv(e);
   if (!drag || !sel) { cv.style.cursor = hitSticker(px, py) ? 'move' : 'default'; return; }
-  if (drag.m === 'm') { sel.x = Math.min(1.05, Math.max(-0.05, (px - drag.ox) / cv.width)); sel.y = Math.min(1.05, Math.max(-0.05, (py - drag.oy) / cv.height)); }
+  if (drag.m === 'm') { trash.show = true; trash.hot = Math.hypot(px - cv.width / 2, py - (cv.height - 58)) < 70; sel.x = Math.min(1.05, Math.max(-0.05, (px - drag.ox) / cv.width)); sel.y = Math.min(1.05, Math.max(-0.05, (py - drag.oy) / cv.height)); }
   else { const b = sel._b, d = Math.hypot(px - b.cx, py - b.cy), a = Math.atan2(py - b.cy, px - b.cx); sel.size = Math.round(Math.min(700, Math.max(30, drag.size * (d / drag.d0)))); sel.rot = Math.round(drag.rot + ((a - drag.a0) * 180) / Math.PI); if (sel.rot > 180) sel.rot -= 360; if (sel.rot < -180) sel.rot += 360; syncStickerPanel(); }
 });
-const endDrag = () => { if (drag) { drag = null; save(); } };
+const endDrag = () => {
+  if (drag) { const del = drag.m === 'm' && trash.hot; drag = null; trash.show = trash.hot = false; if (del) { deleteSel(); toast('Deleted 🗑️', 1200); } save(); }
+};
 cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
 
 /* ---------- my countdowns ---------- */

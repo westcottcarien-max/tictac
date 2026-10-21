@@ -466,6 +466,19 @@ function drawSelection(c, s, u) {
   c.setLineDash([10, 8]); c.lineWidth = 3; c.strokeStyle = '#ffffff'; c.shadowColor = 'rgba(0,0,0,.7)'; c.shadowBlur = 4;
   c.strokeRect(-b.w / 2 - 6, -b.h / 2 - 6, b.w + 12, b.h + 12); c.setLineDash([]);
   c.beginPath(); c.arc(b.w / 2 + 6, b.h / 2 + 6, 13, 0, TAU); c.fillStyle = '#8b5cf6'; c.fill(); c.lineWidth = 3; c.stroke();
+  // delete button (top-left corner)
+  c.shadowBlur = 0; c.beginPath(); c.arc(-b.w / 2 - 6, -b.h / 2 - 6, 15, 0, TAU); c.fillStyle = '#e5484d'; c.fill(); c.stroke();
+  c.font = `15px ${EMOJI_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText('🗑️', -b.w / 2 - 6, -b.h / 2 - 5);
+  c.restore();
+}
+function drawTrash(c, W, H, hot) {
+  const x = W / 2, y = H - 58, r = hot ? 46 : 36;
+  c.save(); c.shadowColor = 'rgba(0,0,0,.45)'; c.shadowBlur = 14;
+  c.beginPath(); c.arc(x, y, r, 0, TAU); c.fillStyle = hot ? '#e5484d' : 'rgba(30,30,50,.85)'; c.fill();
+  c.shadowBlur = 0; c.lineWidth = 3; c.strokeStyle = '#fff'; c.stroke();
+  c.font = `${r * 0.95}px ${EMOJI_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('🗑️', x, y + 2);
+  c.font = '600 13px Fredoka, sans-serif'; c.fillStyle = '#fff'; c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 4;
+  c.fillText(hot ? 'Release to delete' : 'Drag here to delete', x, y - r - 12);
   c.restore();
 }
 
@@ -482,6 +495,7 @@ function render(c, W, H, st, t, opts = {}) {
   st.stickers.forEach((s) => drawSticker(c, s, W, H, u, t));
   if (st.logo) drawLogo(c, W, H, u);
   if (opts.editing && opts.sel) drawSelection(c, opts.sel, u);
+  if (opts.editing && opts.trash && opts.trash.show) drawTrash(c, W, H, opts.trash.hot);
   c.restore();
   return info;
 }
