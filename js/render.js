@@ -405,6 +405,13 @@ function paintLines(c, L, boxW, align, o) { // box is centred on the origin
   const x = align === 'left' ? -boxW / 2 : align === 'right' ? boxW / 2 : 0;
   L.lines.forEach((l, i) => txt(c, l, x, -L.h / 2 + L.lh * (i + 0.5), { ...o, align }));
 }
+/* shrink the text until it fits the box height (fixedH = height the user set, maxH = default limit when the height is automatic) */
+function fitBox(c, text, font, size, boxW, weight, fixedH, maxH) {
+  let sz = size, L = layoutText(c, text, font, sz, boxW, weight); const cap = fixedH || maxH; let n = 0;
+  while (cap && L.h > cap && sz > 8 && n++ < 60) { sz *= 0.94; L = layoutText(c, text, font, sz, boxW, weight); }
+  return { L, sz, h: fixedH || L.h };
+}
+const BLOCK_MAXH = { title: 0.26, subtitle: 0.1, footer: 0.14 };
 const BLOCK_DEF = { title: { x: 0.5, y: 0.17, w: 0.88 }, subtitle: { x: 0.5, y: 0.275, w: 0.88 }, footer: { x: 0.5, y: 0.9, w: 0.88 } };
 const BLOCK_BANNER = { title: { x: 0.26, y: 0.36, w: 0.44 }, subtitle: { x: 0.26, y: 0.52, w: 0.44 }, footer: { x: 0.26, y: 0.84, w: 0.44 } };
 function blockText(st, key, info) {
@@ -421,13 +428,13 @@ function drawBlocks(c, W, H, st, info, u) {
     const font = fam(b.font || (key === 'title' ? st.text.titleFont : 'Fredoka')), color = b.color || st.text.color, weight = key === 'title' ? 700 : 600, size = b.size * u;
     const p = b.pos && b.pos[st.size], auto = !p && key === 'subtitle' && tb, g = p ? { ...p } : { ...def[key] };
     if (auto) { g.x = tb.x; g.w = tb.w; }
-    const bw = g.w * W, L = layoutText(c, text, font, size, bw, weight);
-    if (auto) g.y = (tb.bottom + 14 * u + L.h / 2) / H;
+    const bw = g.w * W, fixedH = p && p.h ? p.h * H : 0, fb = fitBox(c, text, font, size, bw, weight, fixedH, BLOCK_MAXH[key] * H), L = fb.L, bh = fb.h;
+    if (auto) g.y = (tb.bottom + 14 * u + bh / 2) / H;
     c.save(); c.translate(g.x * W, g.y * H);
-    paintLines(c, L, bw, b.align || 'center', { font, size, color, weight, alpha: key === 'title' ? 1 : 0.93, stroke: key === 'title' && st.text.titleOutline ? rgba('#000000', 0.55) : '' });
+    paintLines(c, L, bw, b.align || 'center', { font, size: fb.sz, color, weight, alpha: key === 'title' ? 1 : 0.93, stroke: key === 'title' && st.text.titleOutline ? rgba('#000000', 0.55) : '' });
     c.restore();
-    b._b = { cx: g.x * W, cy: g.y * H, w: bw, h: L.h, rot: 0, geo: g };
-    if (key === 'title') tb = { x: g.x, w: g.w, bottom: g.y * H + L.h / 2 };
+    b._b = { cx: g.x * W, cy: g.y * H, w: bw, h: bh, rot: 0, geo: g };
+    if (key === 'title') tb = { x: g.x, w: g.w, bottom: g.y * H + bh / 2 };
   }
 }
 function drawFrame(c, W, H, st, u, t) {
@@ -541,8 +548,8 @@ function drawSticker(c, s, W, H, u, t) {
       }
     }
   } else if (s.kind === 'textbox') {
-    const fs = s.size * u, bw = (s.w || 0.6) * W, font = fam(s.font || 'Fredoka'), L = layoutText(c, s.v || '', font, fs, bw, 700);
-    paintLines(c, L, bw, s.align || 'center', { font, size: fs, color: s.color || '#ffffff', weight: 700, stroke: s.outline ? rgba('#000000', 0.55) : '' }); w = bw; h = Math.max(L.h, fs);
+    const fs = s.size * u, bw = (s.w || 0.6) * W, font = fam(s.font || 'Fredoka'), fb = fitBox(c, s.v || '', font, fs, bw, 700, s.h ? s.h * H : 0, 0);
+    paintLines(c, fb.L, bw, s.align || 'center', { font, size: fb.sz, color: s.color || '#ffffff', weight: 700, stroke: s.outline ? rgba('#000000', 0.55) : '' }); w = bw; h = Math.max(fb.h, 20);
   } else { ({ w, h } = drawWording(c, s, u)); }
   c.restore();
   s._b = { cx: s.x * W, cy: s.y * H, w: w * k, h: h * k, rot: (s.rot || 0) * Math.PI / 180 };
@@ -552,7 +559,8 @@ function drawSelection(c, s, u) {
   c.save(); c.translate(b.cx, b.cy); c.rotate(b.rot);
   c.setLineDash([10, 8]); c.lineWidth = 3; c.strokeStyle = '#ffffff'; c.shadowColor = 'rgba(0,0,0,.7)'; c.shadowBlur = 4;
   c.strokeRect(-b.w / 2 - 6, -b.h / 2 - 6, b.w + 12, b.h + 12); c.setLineDash([]);
-  c.beginPath(); c.arc(b.w / 2 + 6, b.h / 2 + 6, 13, 0, TAU); c.fillStyle = '#8b5cf6'; c.fill(); c.lineWidth = 3; c.stroke();
+  const hs = s.kind === 'block' || s.kind === 'textbox' ? [[b.w / 2 + 6, b.h / 2 + 6], [b.w / 2 + 6, 0], [0, b.h / 2 + 6]] : [[b.w / 2 + 6, b.h / 2 + 6]];
+  hs.forEach(([hx, hy]) => { c.beginPath(); c.arc(hx, hy, 13, 0, TAU); c.fillStyle = '#8b5cf6'; c.fill(); c.lineWidth = 3; c.stroke(); });
   // delete button (top-left corner)
   c.shadowBlur = 0; c.beginPath(); c.arc(-b.w / 2 - 6, -b.h / 2 - 6, 15, 0, TAU); c.fillStyle = '#e5484d'; c.fill(); c.stroke();
   c.font = `15px ${EMOJI_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText('🗑️', -b.w / 2 - 6, -b.h / 2 - 5);

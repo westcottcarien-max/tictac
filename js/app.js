@@ -212,6 +212,8 @@ function syncStickerPanel() {
   $('#sSize').value = sel.size; $('#sRot').value = sel.rot || 0; $('#sAnim').value = sel.anim || 'none';
   $('#sCutRow').hidden = sel.kind !== 'emoji'; if (sel.kind === 'emoji') $('#sCut').checked = sel.border !== false;
   $('#sColors').hidden = !t; $('#sTextRow').hidden = !t; $('#sImg').hidden = !im;
+  $('#sBoxRow').hidden = !(blk || tb);
+  if (blk || tb) { const g = blk ? (sel.pos && sel.pos[state.size]) || sel._b.geo : sel; $('#sW').value = Math.round((g.w || 0.6) * 100); $('#sH').value = Math.round((g.h || sel._b.h / cv.height) * 100); }
   $('#sMsgF').hidden = !(blk || tb); $('#sTxtRow').hidden = !(blk || tb);
   $('#sRotF').hidden = blk; $('#sAnimF').hidden = blk; $('#sFlip').hidden = blk || tb; $('#sDup').hidden = blk; $('#sFront').hidden = blk;
   $('#seHint').textContent = blk ? '(text – drag it, or the purple dot to change the width)' : tb ? '(text box)' : '';
@@ -227,7 +229,10 @@ function syncStickerPanel() {
     if (document.activeElement !== $('#sMsg')) $('#sMsg').value = blk ? state.text[sel.key] || '' : sel.v || '';
   }
 }
-$('#sMsg').oninput = (e) => { if (sel.kind === 'block') { state.text[sel.key] = e.target.value; if (sel.key === 'subtitle' && !e.target.value) state.text.showDate = state.text.showDate; } else sel.v = e.target.value; save(); };
+$('#sW').oninput = (e) => { setBoxFields({ w: +e.target.value / 100 }); save(); };
+$('#sH').oninput = (e) => { setBoxFields({ h: +e.target.value / 100 }); save(); };
+$('#sHAuto').onclick = () => { setBoxFields({ h: null }); syncStickerPanel(); save(); };
+$('#sMsg').oninput = (e) => { if (sel.kind === 'block') { state.text[sel.key] = e.target.value; if (sel.key === 'subtitle' && !e.target.value) state.text.showDate = state.text.showDate; } else sel.v = e.target.value; refreshUI(); save(); };
 $('#sAlign').onchange = (e) => { sel.align = e.target.value; save(); };
 $('#sFont').onchange = (e) => { sel.font = e.target.value; if (e.target.value) loadFont(e.target.value); save(); };
 $('#sTc').oninput = (e) => { sel.color = e.target.value; save(); };
@@ -276,6 +281,7 @@ function hitSticker(px, py) {
   }
   return null;
 }
+function setBoxFields(patch) { if (sel.kind === 'block') setBlockPos(sel, patch); else Object.assign(sel, patch); }
 function setBlockPos(bl, patch) { bl.pos = bl.pos || {}; bl.pos[state.size] = { ...(bl.pos[state.size] || bl._b.geo), ...patch }; }
 cv.addEventListener('pointerdown', (e) => {
   const [px, py] = toCv(e); ptrs.set(e.pointerId, [px, py]);
@@ -285,8 +291,16 @@ cv.addEventListener('pointerdown', (e) => {
     if (Math.hypot(px - (b.cx + lx * dc - ly * ds), py - (b.cy + lx * ds + ly * dc)) < 26) { deleteSel(); toast('Deleted 🗑️', 1200); return; }
   }
   if (sel && sel._b) {
-    const b = sel._b, hx = b.w / 2 + 6, hy = b.h / 2 + 6, c = Math.cos(b.rot), si = Math.sin(b.rot), X = b.cx + hx * c - hy * si, Y = b.cy + hx * si + hy * c;
-    if (Math.hypot(px - X, py - Y) < 26) { drag = { m: isText(sel) ? 'w' : 'h', size: sel.size, rot: sel.rot || 0, d0: Math.hypot(px - b.cx, py - b.cy), a0: Math.atan2(py - b.cy, px - b.cx) }; cv.setPointerCapture(e.pointerId); return; }
+    const b = sel._b, c = Math.cos(b.rot), si = Math.sin(b.rot), at = (hx, hy) => [b.cx + hx * c - hy * si, b.cy + hx * si + hy * c];
+    if (isText(sel)) {
+      for (const [id, hx, hy] of [['se', b.w / 2 + 6, b.h / 2 + 6], ['e', b.w / 2 + 6, 0], ['s', 0, b.h / 2 + 6]]) {
+        const [X, Y] = at(hx, hy);
+        if (Math.hypot(px - X, py - Y) < 24) { drag = { m: 'box', id, sl: -b.w / 2, st: -b.h / 2, w0: b.w, h0: b.h, cx: b.cx, cy: b.cy }; cv.setPointerCapture(e.pointerId); return; }
+      }
+    } else {
+      const [X, Y] = at(b.w / 2 + 6, b.h / 2 + 6);
+      if (Math.hypot(px - X, py - Y) < 26) { drag = { m: 'h', size: sel.size, rot: sel.rot || 0, d0: Math.hypot(px - b.cx, py - b.cy), a0: Math.atan2(py - b.cy, px - b.cx) }; cv.setPointerCapture(e.pointerId); return; }
+    }
   }
   const s = hitSticker(px, py);
   if (s) { sel = s; drag = { m: 'm', ox: px - s._b.cx, oy: py - s._b.cy }; cv.setPointerCapture(e.pointerId); }
@@ -299,7 +313,15 @@ cv.addEventListener('pointermove', (e) => {
   if (drag && drag.m === 'bg') { const ov = state.bg._ov || [0, 0]; if (ov[0] > 1) state.bg.photoX = clamp01(drag.bx - (px - drag.x0) / ov[0]); if (ov[1] > 1) state.bg.photoY = clamp01(drag.by - (py - drag.y0) / ov[1]); syncPhotoSliders(); return; }
   if (!drag || !sel) { cv.style.cursor = hitSticker(px, py) ? 'move' : 'default'; return; }
   if (drag.m === 'm') { trash.show = true; trash.hot = Math.hypot(px - cv.width / 2, py - (cv.height - 58)) < 70; const nx = Math.min(1.05, Math.max(-0.05, (px - drag.ox) / cv.width)), ny = Math.min(1.05, Math.max(-0.05, (py - drag.oy) / cv.height)); if (sel.kind === 'block') setBlockPos(sel, { x: nx, y: ny }); else { sel.x = nx; sel.y = ny; } }
-  else if (drag.m === 'w') { const b = sel._b, lx = (px - b.cx) * Math.cos(b.rot) + (py - b.cy) * Math.sin(b.rot), fr = Math.min(1.3, Math.max(0.12, (2 * (lx - 6)) / cv.width)); if (sel.kind === 'block') setBlockPos(sel, { w: fr }); else sel.w = fr; }
+  else if (drag.m === 'box') {
+    const W = cv.width, H = cv.height, c = Math.cos(sel._b.rot), si = Math.sin(sel._b.rot), dx = px - drag.cx, dy = py - drag.cy, lx = dx * c + dy * si, ly = -dx * si + dy * c;
+    let nw = drag.w0, nh = drag.h0;
+    if (drag.id !== 's') nw = Math.max(60, lx - drag.sl - 6);
+    if (drag.id !== 'e') nh = Math.max(28, ly - drag.st - 6);
+    const ox = drag.sl + nw / 2, oy = drag.st + nh / 2, patch = { x: (drag.cx + ox * c - oy * si) / W, y: (drag.cy + ox * si + oy * c) / H, w: nw / W };
+    if (drag.id !== 'e') patch.h = nh / H;
+    setBoxFields(patch); syncStickerPanel();
+  }
   else { const b = sel._b, d = Math.hypot(px - b.cx, py - b.cy), a = Math.atan2(py - b.cy, px - b.cx); sel.size = Math.round(Math.min(700, Math.max(30, drag.size * (d / drag.d0)))); sel.rot = Math.round(drag.rot + ((a - drag.a0) * 180) / Math.PI); if (sel.rot > 180) sel.rot -= 360; if (sel.rot < -180) sel.rot += 360; syncStickerPanel(); }
 });
 const endDrag = (e) => {
@@ -418,7 +440,7 @@ loadStore(); buildUI(); sizeCanvas(); refreshUI(); updateCaption();
 [state.text.titleFont, state.text.numFont, 'Fredoka', 'Lobster', 'Bangers', 'Pacifico', 'Righteous', 'Caveat', 'Anton'].forEach(loadFont);
 preloadImg('logo-192.png');
 requestAnimationFrame(loop);
-const APP_VERSION = '2026-10-21-6';
+const APP_VERSION = '2026-10-21-7';
 if (/^https?:/.test(location.protocol)) {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then((r) => r.update()).catch(() => {});
   const checkUpdate = () => fetch('version.json?' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((j) => { if (j.v && j.v !== APP_VERSION) $('#updateBar').hidden = false; }).catch(() => {});
